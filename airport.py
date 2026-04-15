@@ -9,7 +9,6 @@ from modules.utility import read_csv, good_bad_data, write_data
 
 from pyspark.sql.types import StringType
 
-
 class Airport:
     def airport_operation(self,spark:SparkSession):
         columns=["airport_id","name","city","country","iata","icao","latitude",
@@ -59,8 +58,9 @@ class Airport:
         # Step 6 - add load date (to track when data is loaded)
         good_df = good_df.withColumn("load_date",F.current_date())
 
-        # Auditing — who loaded what when
-        # SCD logic — finding the latest version of a record
+        # Auditing — who loaded?, what?, when?
+
+        # SCD1 logic — finding the latest version of a record
         # Debugging — tracing problems back to specific loads
 
 
@@ -86,7 +86,11 @@ class Airport:
 
         if os.path.exists(gold_path) and len([f for f in os.listdir(gold_path) if f.endswith('.parquet')]) > 0:
             # previous data exists-> union old+new->keep latest
-            prev_df = spark.read.parquet(gold_path)
+
+            # read into  memory first using cache!
+            prev_df = spark.read.parquet(gold_path).cache()
+            prev_df.count()       # force actual reads into memory
+
             union_df = prev_df.union(good_df)
 
             # rank finding -->>
