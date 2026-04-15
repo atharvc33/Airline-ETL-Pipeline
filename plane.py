@@ -49,8 +49,10 @@ class Plane:
 
         #  union prev_data and good_df (by checking if exist):
 
-        if os.path.exists(gold_path) and len([f for f in os.listdir(gold_path) if f.endwith('.parquet')]) > 0:
-            prev_data = spark.read.parquet(gold_path)
+        if os.path.exists(gold_path) and len([f for f in os.listdir(gold_path) if f.endswith('.parquet')]) > 0:
+           # read into memory first using cache !
+            prev_data = spark.read.parquet(gold_path).cache()
+            prev_data.count()             # force to read from cache
             union_df = prev_data.union(good_df)
 
             # rank with window function :
