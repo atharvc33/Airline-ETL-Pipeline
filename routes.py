@@ -39,7 +39,10 @@ class Route:
         gold_path = "data/gold_data/Routes"
 
         if os.path.exists(gold_path) and len([f for f in os.listdir(gold_path) if f.endswith('.parquet')]) > 0:
-            prev_data = spark.read.parquet(gold_path)
+
+            # read into memory first using cache!
+            prev_data = spark.read.parquet(gold_path).cache()
+            prev_data.count()      #trigger action(count) forces to read from memory
             union_df = prev_data.union(good_df)
 
             # creating windowspec:
