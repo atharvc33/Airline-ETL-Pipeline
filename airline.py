@@ -19,13 +19,14 @@ from pyspark.sql.types import StringType
 
 
 #  airline.py needs a class with a method called airline_operation.
+# main.py calls with help of airline class object
 
 class Airline:
     def airline_operation(self,spark:SparkSession):
 
         # step 1 - define column names manually(no header in csv)
         columns = ["airline_id","name","alias","iata","icao","callsign","country","active"]
-        df = read_csv(spark,"data/raw_data/Airline/airline.csv")
+        df = read_csv(spark,"data/raw_data/Airline")
         df = df.toDF(*columns)
 
         # step 2 - business rule: negative airline_id = bad data
@@ -34,10 +35,18 @@ class Airline:
 
         # step 3 - generate alias from name
         good_df = good_df.withColumn(
-                "alias",
-                        F.expr(
-                        "aggregate(split(name, ' '), '', (acc, x) -> concat(acc, substring(x, 1, 1)))")
-                                     )
+            "alias",
+            F.when(
+                 F.col("name").isNotNull(),
+                 F.concat_ws(
+                    "",
+                    F.transform(
+                              F.split(F.col("name")," "),
+                              lambda x: F.substring(x,1,1)
+                    )
+                )
+            )
+        )
 
         # step 4 - Null Checks (seperate good and bad based on null columns) -->>
         cols_to_check = ["name","iata","country"]
@@ -86,7 +95,11 @@ class Airline:
         # checks if folder exists AND has parquet files inside :
         if os.path.exists(gold_path) and len([f for f in os.listdir(gold_path) if f.endswith('.parquet')]) > 0:
             # previous data exists-> union old+new->keep latest
-            prev_df = spark.read.parquet(gold_path)
+
+            # read into  memory first using cache!
+            prev_df = spark.read.parquet(gold_path).cache()
+            prev_df.count()    # force actual read into memory
+
             union_df = prev_df.union(good_df)
 
             # rank finding
